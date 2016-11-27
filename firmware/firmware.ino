@@ -34,16 +34,19 @@
 #include <ESP8266mDNS.h>
 #include "wifiPassword.h"
 
+#include "Time.h"
+#include "Timezone.h"
+
+#include "updateTime.h"
+
 //place this in wifiPassword.h
 //const char *ssid = "";
 //const char *password = "";
 
 ESP8266WebServer server ( 80 );
 
-const int led = 13;
 
 void handleRoot() {
-	digitalWrite ( led, 1 );
 	char temp[400];
 	int sec = millis() / 1000;
 	int min = sec / 60;
@@ -62,18 +65,18 @@ void handleRoot() {
   <body>\
     <h1>Hello from ESP8266!</h1>\
     <p>Uptime: %02d:%02d:%02d</p>\
+    <p>Current time: %d</p>\
+    <p>Has time been synced? %d</p>\
     <img src=\"/test.svg\" />\
   </body>\
 </html>",
 
-		hr, min % 60, sec % 60
+		hr, min % 60, sec % 60, now(), timeStatus()
 	);
 	server.send ( 200, "text/html", temp );
-	digitalWrite ( led, 0 );
 }
 
 void handleNotFound() {
-	digitalWrite ( led, 1 );
 	String message = "File Not Found\n\n";
 	message += "URI: ";
 	message += server.uri();
@@ -88,12 +91,9 @@ void handleNotFound() {
 	}
 
 	server.send ( 404, "text/plain", message );
-	digitalWrite ( led, 0 );
 }
 
 void setup ( void ) {
-	pinMode ( led, OUTPUT );
-	digitalWrite ( led, 0 );
 	Serial.begin ( 115200 );
 	WiFi.begin ( ssid, password );
 	Serial.println ( "" );
@@ -122,6 +122,9 @@ void setup ( void ) {
 	server.onNotFound ( handleNotFound );
 	server.begin();
 	Serial.println ( "HTTP server started" );
+        startNTP();
+  analogWriteFreq(500);
+  analogWrite(D1, 255);
 }
 
 void loop ( void ) {
