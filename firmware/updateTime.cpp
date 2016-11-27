@@ -1,8 +1,8 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 
-#include <Time.h>
-#include <Timezone.h>
+#include <Time.h> // https://github.com/PaulStoffregen/Time
+#include <Timezone.h> // https://github.com/JChristensen/Timezone
 
 #include "updateTime.h"
 
