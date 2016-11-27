@@ -1,0 +1,3 @@
+firmware/wifiPassword.h
+*.kicad_pcb-bak
+*.bak
