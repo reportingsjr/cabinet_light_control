@@ -1,8 +1,8 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 
-#include <Time.h> // https://github.com/PaulStoffregen/Time
-#include <Timezone.h> // https://github.com/JChristensen/Timezone
+#include "Time.h" // https://github.com/PaulStoffregen/Time
+#include "Timezone.h" // https://github.com/JChristensen/Timezone
 
 #include "updateTime.h"
 
@@ -20,11 +20,6 @@ byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing pack
 
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
-
-time_t eastern, utc;
-TimeChangeRule usEDT = {"EDT", Second, Sun, Mar, 2, -240};  //UTC - 4 hours
-TimeChangeRule usEST = {"EST", First, Sun, Nov, 2, -300};   //UTC - 5 hours
-Timezone usEastern(usEDT, usEST);
 
 void startNTP() {
   udp.begin(localPort);

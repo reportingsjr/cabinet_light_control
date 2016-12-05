@@ -39,20 +39,62 @@
 #include "updateTime.h"
 #include "localWebServer.h"
 
-//place this in wifiPassword.h
-//const char *ssid = "";
-//const char *password = "";
+TimeChangeRule usEDT = {"EDT", Second, Sun, Mar, 2, -240};  //UTC - 4 hours
+TimeChangeRule usEST = {"EST", First, Sun, Nov, 2, -300};   //UTC - 5 hours
+Timezone usEastern(usEDT, usEST);
 
+int brightness = 0;
+bool brighter = true;
 
+int pwmIntervals = 180; // three hour fade on and off
+// Equation pulled from https://diarmuid.ie/blog/pwm-exponential-led-fading-on-arduino-or-other-platforms/
+float R = (pwmIntervals * log10(2))/(log10(1023));
+
+// variable here temporarily to simulate faster days
+int timeWarp = 0;
 
 void setup ( void ) {
   startWiFi();
   startNTP();
   analogWriteFreq(500);
-  analogWrite(D1, 255);
+  analogWrite(D1, brightness);
 }
 
 void loop ( void ) {
   server.handleClient();
+  
+  // artificially increase the time by 15 mins ever loop to simulate faster days.
+  time_t utc = now();// + timeWarp*900;
+  time_t eastern = usEastern.toLocal(utc);
+
+  if(hour(eastern) >= 7 && hour(eastern) < 10) {
+    Serial.println("Getting brighter!");
+    float minutesSince7 = (hour(eastern) - 7)*60 + minute(eastern);
+    brightness = pow(2, (minutesSince7 /  R)) - 1;
+  }
+  if(hour(eastern) >= 10 && hour(eastern) < 17) {
+    Serial.println("Peak brightness!");
+    brightness = 1023;
+  }
+  if(hour(eastern) >= 17 && hour(eastern) < 20) {
+    // dim LEDs
+    Serial.println("Getting dimmer!");
+    float minutesUntil8 = (20 - hour(eastern))*60 - minute(eastern);
+    brightness = pow(2, (minutesUntil8 / R)) - 1;
+  }
+  if(hour(eastern) >= 20 || hour(eastern) < 7) {
+    Serial.println("Peak darkness!");
+    brightness = 0;
+  }
+
+  Serial.print("Current time:");
+  Serial.println(hour(eastern));
+  Serial.print("Current brightness:");
+  Serial.println(brightness);
+  analogWrite(D1, brightness);
+
+  delay(500);
+  // Let's do the time warp again!
+  //timeWarp++;
 }
 

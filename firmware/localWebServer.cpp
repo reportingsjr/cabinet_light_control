@@ -8,6 +8,10 @@
 #include "wifiPassword.h"
 #include "localWebServer.h"
 
+//place this in wifiPassword.h
+//const char *ssid = "";
+//const char *password = "";
+
 ESP8266WebServer server ( 80 );
 
 void handleRoot() {
