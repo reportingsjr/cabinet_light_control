@@ -47,7 +47,6 @@ int brightness = 0;
 bool brighter = true;
 
 int pwmIntervals = 180; // three hour fade on and off
-// Equation pulled from https://diarmuid.ie/blog/pwm-exponential-led-fading-on-arduino-or-other-platforms/
 float R = (pwmIntervals * log10(2))/(log10(1023));
 
 // variable here temporarily to simulate faster days
@@ -87,6 +86,13 @@ void loop ( void ) {
     brightness = 0;
   }
 
+
+  if(lightToggleOverride == 1) {
+    brightness = 1023;
+  }
+  if(lightToggleOverride == 2) {
+    brightness = 0;
+  }
   Serial.print("Current time:");
   Serial.println(hour(eastern));
   Serial.print("Current brightness:");

@@ -14,6 +14,12 @@
 
 ESP8266WebServer server ( 80 );
 
+// light override state machine
+// 0 = no override
+// 1 = override on
+// 2 = override off
+int lightToggleOverride = 0;
+
 void handleRoot() {
 	char temp[400];
 	int sec = millis() / 1000;
@@ -102,6 +108,21 @@ void startWiFi() {
   server.on ( "/test.svg", drawGraph );
   server.on ( "/inline", []() {
           server.send ( 200, "text/plain", "this works as well" );
+  } );
+  server.on ( "/toggleLights", []() {
+          String message = "Toggled";
+          if(lightToggleOverride == 0) {
+            lightToggleOverride = 1;
+            message += " on.";
+          } else if(lightToggleOverride == 1) {
+            lightToggleOverride = 2;
+            message += " off.";
+          } else {
+            lightToggleOverride = 0;
+            message += " to disable override.";
+          }
+          
+          server.send ( 200, "text/plain", message );
   } );
   server.onNotFound ( handleNotFound );
   server.begin();
