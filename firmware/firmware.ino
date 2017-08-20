@@ -97,7 +97,8 @@ enum current_state_enum {
   counting_down_pir,
   off_pir,
   off_ha,
-  on_ha
+  on_ha,
+  button
 };
 
 current_state_enum current_state = off_pir;
@@ -205,26 +206,26 @@ void reconnect() {
 
 void setup ( void ) {
   Serial.begin(115200);
+  // LED PWM pin
   pinMode(5, OUTPUT);
+  // PIR sensor input pin
   pinMode(D2, INPUT);
+  // pushbutton input pin
+  pinMode(D5, INPUT);
 
-#define PWM_CHANNELS 1
-const uint32 period = 5000; // * 200ns ^= 1kHz
+  #define PWM_CHANNELS 1
+  const uint32 period = 5000; // * 200ns ^= 1kHz
 
-uint32 io_info[PWM_CHANNELS][3] = {
-  // MUX, FUNC, PIN
-  {PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5, 5}
-};
+  uint32 io_info[PWM_CHANNELS][3] = {
+    // MUX, FUNC, PIN
+    {PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5, 5}
+  };
 
+  uint32 pwm_duty_init[PWM_CHANNELS] = {0};
 
-uint32 pwm_duty_init[PWM_CHANNELS] = {0};
+  pwm_init(period, pwm_duty_init, PWM_CHANNELS, io_info);
+  pwm_start();
 
-pwm_init(period, pwm_duty_init, PWM_CHANNELS, io_info);
-pwm_start();
-
-
-  //analogWriteFreq(500);
-  //analogWrite(D1, m_light_brightness);
   setLightState();
 
 
@@ -276,8 +277,25 @@ pwm_start();
 // time from millis() when the PIR sensor no longer detected someone
 unsigned long time_turned_off = 0;
 
+// How the pushbutton should work:
+//   If pressed briefly (<1s) it will turn the lights on if they are off, and off if they are on
+//   If the pushbutton is held down (>1s) it will fade brightness up and down until the button
+//   is released. Whatever the brightness is at that time is what the lights will be set to.
+
+// time from millis() when the pushbutton was pushed
+unsigned long pushbutton_time_pressed = 0;
+
+// how many times we have looped in the button state
+int button_counter = 0;
+
 void state_machine() {
   if(current_state == off_pir) {
+    if(!digitalRead(D5)) {
+      //client.publish("kitchen/cabinetlights/pushbutton", "button pressed", true);
+    //   current_state = button;
+    //   pushbutton_time_pressed = millis();
+    //   return;
+    }
     if(digitalRead(D2)) {
       current_state = on_pir;
       m_light_state = true;
@@ -304,11 +322,22 @@ void state_machine() {
       }
     }
   } else if(current_state == on_pir) {
+    if(!digitalRead(D5)) {
+      //client.publish("kitchen/cabinetlights/pushbutton", "button pressed", true);
+    //   //current_state = button;
+    //   pushbutton_time_pressed = millis();
+    //   return;
+    }
     if(!digitalRead(D2)) {
       current_state = counting_down_pir;
       time_turned_off = millis();
     }
   } else if(current_state == counting_down_pir) {
+    //if(digitalRead(D5)) {
+    //   current_state = button;
+    //   pushbutton_time_pressed = millis();
+    //   return;
+    //}
     if(digitalRead(D2)) {
       current_state = on_pir;
     } else if(millis() - time_turned_off > turn_off_countdown) {
@@ -319,10 +348,37 @@ void state_machine() {
       publishLightState();
     }
   } else if(current_state == on_ha) {
-    // this state overrides the PIR via MQTT so don't do anything here
+    // this state overrides the PIR via MQTT so don't do anything here except check the pushbutton
+    //if(digitalRead(D5)) {
+    //   current_state = button;
+    //   pushbutton_time_pressed = millis();
+    //   return;
+    //}
   } else if(current_state == off_ha) {
     // this state is currently no different from off_pir, so switch straight to that
     current_state = off_pir;
+  } else if(current_state == button) {
+    // if we are in this state the button has either been pressed, or is being held down
+    if(digitalRead(D5)) {
+      // the button is still being pressed
+    } else {
+      // the button is not being pressed
+      if((millis() - pushbutton_time_pressed) < 1000) {
+        // it was let go before 1s was up
+      } else {
+        // it was held down,
+      }
+    }
+    if(button_counter > 10) {
+      current_state = off_pir;
+      button_counter = 0;
+    }
+    button_counter++;
+    m_light_state = !m_light_state;
+    setLightState();
+    publishLightBrightness();
+    publishLightState();
+    delay(10);
   }
 }
 
