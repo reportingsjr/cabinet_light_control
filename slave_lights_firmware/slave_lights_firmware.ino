@@ -111,22 +111,18 @@ void publishLightBrightness() {
 
 
 // function called when a MQTT message arrived
-void callback(char* p_topic, byte* p_payload, unsigned int p_length) {
-  // concat the payload into a string
-  String payload;
-  for (uint8_t i = 0; i < p_length; i++) {
-    payload.concat((char)p_payload[i]);
-  }
+void callback(const char* p_topic, const byte* p_payload, unsigned int p_length) {
   // handle message topic
-  if (String(MQTT_LIGHT_COMMAND_TOPIC).equals(p_topic)) {
+  if (strncmp(MQTT_LIGHT_COMMAND_TOPIC, p_topic, strlen(p_topic)) == 0 
+      && strlen(MQTT_LIGHT_COMMAND_TOPIC) == strlen(p_topic)) {
     // test if the payload is equal to "ON" or "OFF"
-    if (payload.equals(String(LIGHT_ON))) {
+    if (strncmp((char *) p_payload, LIGHT_ON, p_length)) {
       if (m_light_state != true) {
         m_light_state = true;
         setLightState();
         publishLightState();
       }
-    } else if (payload.equals(String(LIGHT_OFF))) {
+    } else if (strncmp((char *) p_payload, LIGHT_OFF, p_length)) {
       if (m_light_state != false) {
         m_light_state = false;
         m_light_brightness = 0;
@@ -134,8 +130,11 @@ void callback(char* p_topic, byte* p_payload, unsigned int p_length) {
         publishLightState();
       }
     }
-  } else if (String(MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC).equals(p_topic)) {
-    uint8_t brightness = payload.toInt();
+  } else if (strncmp(MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC, p_topic, strlen(p_topic)) == 0 
+      && strlen(MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC) == strlen(p_topic)) {
+    // the brightness command payload is just a one byte integer. Convert it to uint8_t variable
+    //  just for better readability.
+    uint8_t brightness = p_payload[0];
     if (brightness < 0 || brightness > 255) {
       // do nothing...
       return;
@@ -144,10 +143,11 @@ void callback(char* p_topic, byte* p_payload, unsigned int p_length) {
       setLightState();
       publishLightBrightness();
     }
-  } else if (String(MQTT_SUN_TOPIC).equals(p_topic)) {
-    if(payload.equals(String(SUNRISE))) {
+  } else if (strncmp(MQTT_SUN_TOPIC, p_topic, strlen(p_topic)) == 0 
+      && strlen(MQTT_SUN_TOPIC) == strlen(p_topic)) {
+    if (strncmp((char *) p_payload, SUNRISE, p_length)) {
       m_sun_up = true;
-    } else if(payload.equals(String(SUNSET))) {
+    } else if (strncmp((char *) p_payload, SUNSET, p_length)) {
       m_sun_up = false;
     }
   }

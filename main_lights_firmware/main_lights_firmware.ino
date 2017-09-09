@@ -150,22 +150,6 @@ void publishLightBrightness() {
   client.publish(MQTT_MICROWAVE_LIGHT_BRIGHTNESS_COMMAND_TOPIC, m_msg_buffer, true);
 }
 
-
-// function called to publish the command to change the state of the led (on/off)
-void publishLightStateCommand() {
-  if (m_light_state) {
-    client.publish(MQTT_LIGHT_COMMAND_TOPIC, LIGHT_ON, true);
-  } else {
-    client.publish(MQTT_LIGHT_COMMAND_TOPIC, LIGHT_OFF, true);
-  }
-}
-
-// function called to publish the command to change brightness of the led
-void publishLightBrightnessCommand() {
-  snprintf(m_msg_buffer, MSG_BUFFER_SIZE, "%d", map(m_light_brightness, 0, 5000, 0, 255));
-  client.publish(MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC, m_msg_buffer, true);
-}
-
 // function called when a MQTT message arrived
 void callback(char* p_topic, byte* p_payload, unsigned int p_length) {
   // concat the payload into a string
@@ -341,8 +325,6 @@ void state_machine() {
         for(int i = 0; i < 10; i++) {
           m_light_brightness += end_brightness/10;
           setLightState();
-          ////////////////publishLightStateCommand();
-          /////////////////publishLightBrightnessCommand();
           // we want a 250ms delay total
           delay(250/10);
         }
@@ -350,17 +332,12 @@ void state_machine() {
         for(int i = 0; i < 5; i++) {
           m_light_brightness += 1;
           setLightState();
-          //////////////publishLightStateCommand();
-          /////////////publishLightBrightnessCommand();
           // we want a 250ms delay total
           delay(250/5);
         }
       }
       publishLightState();
       publishLightBrightness();
-      // removed as it was causing bugs:
-      //publishLightStateCommand();
-      //publishLightBrightnessCommand();
     }
   } else if(current_state == on_pir) {
     if(digitalRead(D5)) {
@@ -445,8 +422,6 @@ void state_machine() {
             for(int i = 0; i < 10; i++) {
               m_light_brightness += end_brightness/10;
               setLightState();
-              ////////////////publishLightStateCommand();
-              /////////////////publishLightBrightnessCommand();
               // we want a 250ms delay total
               delay(250/10);
             }
@@ -454,8 +429,6 @@ void state_machine() {
             for(int i = 0; i < 5; i++) {
               m_light_brightness += 1;
               setLightState();
-              //////////////publishLightStateCommand();
-              /////////////publishLightBrightnessCommand();
               // we want a 250ms delay total
               delay(250/5);
             }
