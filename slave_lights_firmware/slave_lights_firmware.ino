@@ -80,29 +80,6 @@ char m_msg_buffer[MSG_BUFFER_SIZE];
 WiFiClient wifiClient;
 PubSubClient client(wifiClient);
 
-time_t PIR_time_passed = 0;
-boolean on_from_PIR = false;
-
-// number of milliseconds to wait to turn off LEDs once PIR no longer detects someone
-const unsigned long turn_off_countdown = 120000;
-
-// state machine:
-// on_pir = PIR sensor detects presence
-// counting_down_pir = PIR sensor doesn't detect anyone, but on
-// off_pir = PIR sensor hasn't detected anyone in X seconds
-// off_ha = turned off in home assistant
-// on_ha = turned off in home assistant
-enum current_state_enum {
-  on_pir,
-  counting_down_pir,
-  off_pir,
-  off_ha,
-  on_ha,
-  button
-};
-
-current_state_enum current_state = off_pir;
-
 // function called to adapt the brightness and the state of the led
 void setLightState() {
   if (m_light_state) {
@@ -133,21 +110,6 @@ void publishLightBrightness() {
 }
 
 
-// function called to publish the command to change the state of the led (on/off)
-void publishLightStateCommand() {
-  //if (m_light_state) {
-  //  client.publish(MQTT_LIGHT_COMMAND_TOPIC, LIGHT_ON, true);
-  //} else {
-  //  client.publish(MQTT_LIGHT_COMMAND_TOPIC, LIGHT_OFF, true);
-  //}
-}
-
-// function called to publish the command to change brightness of the led
-void publishLightBrightnessCommand() {
-  //snprintf(m_msg_buffer, MSG_BUFFER_SIZE, "%d", map(m_light_brightness, 0, 5000, 0, 255));
-  //client.publish(MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC, m_msg_buffer, true);
-}
-
 // function called when a MQTT message arrived
 void callback(char* p_topic, byte* p_payload, unsigned int p_length) {
   // concat the payload into a string
@@ -157,26 +119,22 @@ void callback(char* p_topic, byte* p_payload, unsigned int p_length) {
   }
   // handle message topic
   if (String(MQTT_LIGHT_COMMAND_TOPIC).equals(p_topic)) {
-    ////////////////////////////////on_from_PIR = false;
     // test if the payload is equal to "ON" or "OFF"
     if (payload.equals(String(LIGHT_ON))) {
-      current_state = on_ha;
       if (m_light_state != true) {
         m_light_state = true;
         setLightState();
         publishLightState();
       }
     } else if (payload.equals(String(LIGHT_OFF))) {
-      current_state = off_ha;
       if (m_light_state != false) {
         m_light_state = false;
         m_light_brightness = 0;
         setLightState();
-      }
         publishLightState();
+      }
     }
   } else if (String(MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC).equals(p_topic)) {
-    current_state = on_ha;
     uint8_t brightness = payload.toInt();
     if (brightness < 0 || brightness > 255) {
       // do nothing...
@@ -221,10 +179,6 @@ void setup ( void ) {
   Serial.begin(115200);
   // LED PWM pin
   pinMode(5, OUTPUT);
-  // PIR sensor input pin
-  pinMode(D2, INPUT);
-  // pushbutton input pin
-  pinMode(D5, INPUT);
 
   #define PWM_CHANNELS 1
   const uint32 period = 5000; // * 200ns ^= 1kHz
@@ -287,125 +241,12 @@ void setup ( void ) {
 }
 
 
-// time from millis() when the PIR sensor no longer detected someone
-unsigned long time_turned_off = 0;
-
-// How the pushbutton should work:
-//   If pressed briefly (<1s) it will turn the lights on if they are off, and off if they are on
-//   If the pushbutton is held down (>1s) it will fade brightness up and down until the button
-//   is released. Whatever the brightness is at that time is what the lights will be set to.
-
-// time from millis() when the pushbutton was pushed
-unsigned long pushbutton_time_pressed = 0;
-
-// how many times we have looped in the button state
-int button_counter = 0;
-
-void state_machine() {
-  if(current_state == off_pir) {
-    if(!digitalRead(D5)) {
-      //client.publish("kitchen/cabinetlights/pushbutton", "button pressed", true);
-    //   current_state = button;
-    //   pushbutton_time_pressed = millis();
-    //   return;
-    }
-    /*if(digitalRead(D2)) {
-      current_state = on_pir;
-      m_light_state = true;
-      m_light_brightness = 0;
-      if(m_sun_up) {
-        int end_brightness = 2000;
-        for(int i = 0; i < 10; i++) {
-          m_light_brightness += end_brightness/10;
-          setLightState();
-          ////////////////publishLightStateCommand();
-          /////////////////publishLightBrightnessCommand();
-          // we want a 250ms delay total
-          delay(250/10);
-        }
-          publishLightStateCommand();
-          publishLightBrightnessCommand();
-      } else {
-        for(int i = 0; i < 5; i++) {
-          m_light_brightness += 1;
-          setLightState();
-          //////////////publishLightStateCommand();
-          /////////////publishLightBrightnessCommand();
-          // we want a 250ms delay total
-          delay(250/5);
-        }
-      }
-      //publishLightStateCommand();
-      //publishLightBrightnessCommand();
-    }*/
-  } else if(current_state == on_pir) {
-    if(!digitalRead(D5)) {
-      //client.publish("kitchen/cabinetlights/pushbutton", "button pressed", true);
-    //   //current_state = button;
-    //   pushbutton_time_pressed = millis();
-    //   return;
-    }
-    if(!digitalRead(D2)) {
-      current_state = counting_down_pir;
-      time_turned_off = millis();
-    }
-  } else if(current_state == counting_down_pir) {
-    //if(digitalRead(D5)) {
-    //   current_state = button;
-    //   pushbutton_time_pressed = millis();
-    //   return;
-    //}
-    if(digitalRead(D2)) {
-      current_state = on_pir;
-    } else if(millis() - time_turned_off > turn_off_countdown) {
-      current_state = off_pir;
-      m_light_state = false;
-      setLightState();
-      publishLightBrightnessCommand();
-      publishLightStateCommand();
-    }
-  } else if(current_state == on_ha) {
-    // this state overrides the PIR via MQTT so don't do anything here except check the pushbutton
-    //if(digitalRead(D5)) {
-    //   current_state = button;
-    //   pushbutton_time_pressed = millis();
-    //   return;
-    //}
-  } else if(current_state == off_ha) {
-    // this state is currently no different from off_pir, so switch straight to that
-    current_state = off_pir;
-  } else if(current_state == button) {
-    // if we are in this state the button has either been pressed, or is being held down
-    if(digitalRead(D5)) {
-      // the button is still being pressed
-    } else {
-      // the button is not being pressed
-      if((millis() - pushbutton_time_pressed) < 1000) {
-        // it was let go before 1s was up
-      } else {
-        // it was held down,
-      }
-    }
-    if(button_counter > 10) {
-      current_state = off_pir;
-      button_counter = 0;
-    }
-    button_counter++;
-    m_light_state = !m_light_state;
-    setLightState();
-    publishLightBrightness();
-    publishLightState();
-    delay(10);
-  }
-}
-
 void loop ( void ) {
   ArduinoOTA.handle();
 
   if (!client.connected()) {
     reconnect();
   }
-  state_machine();
   client.loop();
 }
 
