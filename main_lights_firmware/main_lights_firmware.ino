@@ -84,7 +84,8 @@ boolean m_sun_up = false;
 const PROGMEM uint8_t LIGHT_PIN = D1;
 
 const uint8_t MSG_BUFFER_SIZE = 20;
-char m_msg_buffer[MSG_BUFFER_SIZE]; 
+char m_msg_buffer[MSG_BUFFER_SIZE];
+char m_slave_msg_buffer[MSG_BUFFER_SIZE];
 
 WiFiClient wifiClient;
 PubSubClient client(wifiClient);
@@ -146,8 +147,10 @@ void publishLightState() {
 // function called to publish the brightness of the led
 void publishLightBrightness() {
   snprintf(m_msg_buffer, MSG_BUFFER_SIZE, "%d", map(m_light_brightness, 0, 5000, 0, 255));
+  // transmit the slave light value as the raw value since it tends to round too much at low values
+  snprintf(m_slave_msg_buffer, MSG_BUFFER_SIZE, "%d", m_light_brightness);
   client.publish(MQTT_LIGHT_BRIGHTNESS_STATE_TOPIC, m_msg_buffer, true);
-  client.publish(MQTT_MICROWAVE_LIGHT_BRIGHTNESS_COMMAND_TOPIC, m_msg_buffer, true);
+  client.publish(MQTT_MICROWAVE_LIGHT_BRIGHTNESS_COMMAND_TOPIC, m_slave_msg_buffer, true);
 }
 
 // function called when a MQTT message arrived
@@ -397,8 +400,6 @@ void state_machine() {
           m_light_brightness -= 10;
         }
         setLightState();
-        publishLightState();
-        publishLightBrightness();
       }
     } else {
       // the button is not being pressed

@@ -105,24 +105,25 @@ void publishLightState() {
 
 // function called to publish the brightness of the led
 void publishLightBrightness() {
-  snprintf(m_msg_buffer, MSG_BUFFER_SIZE, "%d", map(m_light_brightness, 0, 5000, 0, 255));
+  snprintf(m_msg_buffer, MSG_BUFFER_SIZE, "%d", m_light_brightness);
   client.publish(MQTT_LIGHT_BRIGHTNESS_STATE_TOPIC, m_msg_buffer, true);
 }
 
 
 // function called when a MQTT message arrived
 void callback(const char* p_topic, const byte* p_payload, unsigned int p_length) {
+  Serial.println("received a message");
   // handle message topic
-  if (strncmp(MQTT_LIGHT_COMMAND_TOPIC, p_topic, strlen(p_topic)) == 0 
+  if (strncmp(MQTT_LIGHT_COMMAND_TOPIC, p_topic, strlen(p_topic)) == 0
       && strlen(MQTT_LIGHT_COMMAND_TOPIC) == strlen(p_topic)) {
     // test if the payload is equal to "ON" or "OFF"
-    if (strncmp((char *) p_payload, LIGHT_ON, p_length)) {
+    if (strncmp((char *) p_payload, LIGHT_ON, p_length) == 0) {
       if (m_light_state != true) {
         m_light_state = true;
         setLightState();
         publishLightState();
       }
-    } else if (strncmp((char *) p_payload, LIGHT_OFF, p_length)) {
+    } else if (strncmp((char *) p_payload, LIGHT_OFF, p_length) == 0) {
       if (m_light_state != false) {
         m_light_state = false;
         m_light_brightness = 0;
@@ -130,24 +131,30 @@ void callback(const char* p_topic, const byte* p_payload, unsigned int p_length)
         publishLightState();
       }
     }
-  } else if (strncmp(MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC, p_topic, strlen(p_topic)) == 0 
+  } else if (strncmp(MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC, p_topic, strlen(p_topic)) == 0
       && strlen(MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC) == strlen(p_topic)) {
-    // the brightness command payload is just a one byte integer. Convert it to uint8_t variable
-    //  just for better readability.
-    uint8_t brightness = p_payload[0];
-    if (brightness < 0 || brightness > 255) {
+
+    // This garbage is because the brightness value is printed to a string to be transmitted.
+    // We have to parse the string manually since it is also transmitted as a non-null terminated 
+    // string. None of the standard C string functions (atoi, atod, etc) take a length. :(
+    uint16_t brightness = 0;
+    while(p_length--) {
+      brightness = brightness*10 + *p_payload++ - '0';
+    }
+
+    if (brightness < 0 || brightness > 5000) {
       // do nothing...
       return;
     } else {
-      m_light_brightness = map(brightness, 0, 255, 0, 5000);
+      m_light_brightness = brightness;
       setLightState();
       publishLightBrightness();
     }
-  } else if (strncmp(MQTT_SUN_TOPIC, p_topic, strlen(p_topic)) == 0 
+  } else if (strncmp(MQTT_SUN_TOPIC, p_topic, strlen(p_topic)) == 0
       && strlen(MQTT_SUN_TOPIC) == strlen(p_topic)) {
-    if (strncmp((char *) p_payload, SUNRISE, p_length)) {
+    if (strncmp((char *) p_payload, SUNRISE, p_length) == 0) {
       m_sun_up = true;
-    } else if (strncmp((char *) p_payload, SUNSET, p_length)) {
+    } else if (strncmp((char *) p_payload, SUNSET, p_length) == 0) {
       m_sun_up = false;
     }
   }
